@@ -1,0 +1,59 @@
+buildscript {
+    ext.kotlin_version = '1.7.10'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    
+    // Force all projects to use Android SDK 34
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileSdkVersion 34
+                if (project.android.hasProperty('defaultConfig')) {
+                    project.android.defaultConfig {
+                        targetSdkVersion 34
+                    }
+                }
+            }
+        }
+    }
+    
+    // Disable JDK image transformation globally
+    gradle.projectsEvaluated {
+        rootProject.allprojects {
+            if (project.hasProperty('android')) {
+                project.android {
+                    compileOptions {
+                        sourceCompatibility JavaVersion.VERSION_17
+                        targetCompatibility JavaVersion.VERSION_17
+                    }
+                }
+            }
+        }
+    }
+}
+
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
