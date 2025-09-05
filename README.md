@@ -69,3 +69,4 @@ Notifications:
   1. Add `android/app/google-services.json` and `ios/Runner/GoogleService-Info.plist` from Firebase Console.
   2. Integrate the Firebase Gradle plugin and iOS plist steps per FlutterFire docs.
   3. App initializes notifications automatically on startup.# waas-wallet
+# waas-wallet
