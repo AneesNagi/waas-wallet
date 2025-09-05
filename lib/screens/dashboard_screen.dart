@@ -1,318 +1,516 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../providers/wallet_provider.dart';
+import '../providers/theme_provider.dart';
+import '../widgets/transaction_history_widget.dart';
+import '../config/app_config.dart';
+import 'package:flutter/foundation.dart'; // Added for kDebugMode
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final Function(int)? onTabChange;
+  
+  const DashboardScreen({super.key, this.onTabChange});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Mock data - will be replaced with real wallet data
-  final String _walletAddress = "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6";
-  final double _usdcBalance = 1250.75;
-  final List<Map<String, dynamic>> _recentTransactions = [
-    {
-      'type': 'received',
-      'amount': 500.00,
-      'from': '0x1234...5678',
-      'time': '2 hours ago',
-      'status': 'confirmed'
-    },
-    {
-      'type': 'sent',
-      'amount': 250.25,
-      'to': '0x8765...4321',
-      'time': '1 day ago',
-      'status': 'confirmed'
-    },
-    {
-      'type': 'received',
-      'amount': 1000.00,
-      'from': '0x9876...5432',
-      'time': '3 days ago',
-      'status': 'confirmed'
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Refresh wallet data when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WalletProvider>().refreshWallet();
+    });
+  }
 
   void _copyAddress() {
-    Clipboard.setData(ClipboardData(text: _walletAddress));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Wallet address copied to clipboard'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    final walletProvider = context.read<WalletProvider>();
+    if (walletProvider.walletAddress != null) {
+      Clipboard.setData(ClipboardData(text: walletProvider.walletAddress!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Wallet address copied to clipboard'),
+          backgroundColor: AppConfig.successColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _navigateToTab(int index) {
+    // Use callback to communicate with parent home screen
+    if (widget.onTabChange != null) {
+      widget.onTabChange!(index);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Consumer2<WalletProvider, ThemeProvider>(
+      builder: (context, walletProvider, themeProvider, child) {
+        if (walletProvider.isLoading) {
+          return Scaffold(
+            backgroundColor: themeProvider.getBackgroundColor(),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'USDC Wallet',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppConfig.primaryColor),
+                    strokeWidth: 3,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0052FF),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Base Network',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Loading Wallet...',
+                    style: TextStyle(
+                      color: themeProvider.getTextColor(),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
+          );
+        }
 
-              // Balance Card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0052FF),
-                      Color(0xFF6366F1),
-                      Color(0xFF8B5CF6),
+        if (walletProvider.errorMessage != null) {
+          return _buildErrorView(walletProvider, themeProvider);
+        }
+
+        return Scaffold(
+          backgroundColor: themeProvider.getBackgroundColor(),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with Theme Toggle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Wallet',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: themeProvider.getTextColor(),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Manage your USDC',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: themeProvider.getSecondaryTextColor(),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          // Theme Toggle Button
+                          Container(
+                            decoration: BoxDecoration(
+                              color: themeProvider.getCardColor(),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: themeProvider.getBorderColor(),
+                                width: 1,
+                              ),
+                            ),
+                            child: IconButton(
+                              onPressed: () => themeProvider.toggleTheme(),
+                              icon: Icon(
+                                themeProvider.isDarkMode 
+                                    ? Icons.light_mode 
+                                    : Icons.dark_mode,
+                                color: AppConfig.primaryColor,
+                                size: 24,
+                              ),
+                              tooltip: 'Toggle theme',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Network Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  AppConfig.gradientStart,
+                                  AppConfig.gradientMiddle,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppConfig.primaryColor.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              walletProvider.networkName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0052FF).withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Balance',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
+                  const SizedBox(height: 32),
+
+                  // Balance Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppConfig.gradientStart,
+                          AppConfig.gradientMiddle,
+                          AppConfig.gradientEnd,
+                        ],
                       ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppConfig.primaryColor.withOpacity(0.4),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '\$',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.w300,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.account_balance_wallet,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'USDC',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _usdcBalance.toStringAsFixed(2),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 20),
                         const Text(
-                          'USDC',
+                          'Total Balance',
                           style: TextStyle(
                             color: Colors.white70,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text(
+                              '\$',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              walletProvider.formattedUSDCBalance,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 52,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'Base Network',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1,
                             ),
                           ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.trending_up,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '+2.5%',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.fingerprint,
+                                color: Colors.white.withOpacity(0.8),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  walletProvider.shortWalletAddress,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _copyAddress,
+                                icon: Icon(
+                                  Icons.copy,
+                                  color: Colors.white.withOpacity(0.8),
+                                  size: 20,
+                                ),
+                                tooltip: 'Copy address',
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Wallet Address
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E2330),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.grey.withOpacity(0.2),
-                    width: 1,
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Wallet Address',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 24),
+
+                  if (!AppConfig.enableWaaS)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: themeProvider.getCardColor(),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: themeProvider.getBorderColor(),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppConfig.warningColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.currency_bitcoin,
+                              color: AppConfig.warningColor,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ETH Balance',
+                                  style: TextStyle(
+                                    color: themeProvider.getSecondaryTextColor(),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${walletProvider.formattedETHBalance} ETH',
+                                  style: TextStyle(
+                                    color: themeProvider.getTextColor(),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'For gas fees on Base Network',
+                                  style: TextStyle(
+                                    color: themeProvider.getSecondaryTextColor(),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _walletAddress,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontFamily: 'monospace',
+                  if (AppConfig.enableWaaS)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: themeProvider.getCardColor(),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: themeProvider.getBorderColor(),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppConfig.successColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.local_gas_station,
+                              color: AppConfig.successColor,
+                              size: 24,
                             ),
                           ),
-                        ),
-                        IconButton(
-                          onPressed: _copyAddress,
-                          icon: const Icon(
-                            Icons.copy,
-                            color: Color(0xFF0052FF),
-                            size: 20,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Gas Sponsored',
+                                  style: TextStyle(
+                                    color: themeProvider.getSecondaryTextColor(),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Network fees are covered by the relayer',
+                                  style: TextStyle(
+                                    color: themeProvider.getTextColor(),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  const SizedBox(height: 32),
+                  
+                  // Quick Actions
+                  Text(
+                    'Quick Actions',
+                    style: TextStyle(
+                      color: themeProvider.getTextColor(),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          icon: Icons.send,
+                          label: 'Send',
+                          color: AppConfig.primaryColor,
+                          onTap: () => _navigateToTab(1),
+                          themeProvider: themeProvider,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildActionButton(
+                          icon: Icons.qr_code_scanner,
+                          label: 'Receive',
+                          color: AppConfig.accentColor,
+                          onTap: () => _navigateToTab(2),
+                          themeProvider: themeProvider,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Transaction History
+                  const TransactionHistoryWidget(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildErrorView(WalletProvider walletProvider, ThemeProvider themeProvider) {
+    return Scaffold(
+      backgroundColor: themeProvider.getBackgroundColor(),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: AppConfig.errorColor,
+                size: 64,
               ),
               const SizedBox(height: 24),
-
-              // Quick Actions
-              const Text(
-                'Quick Actions',
+              Text(
+                'Wallet Error',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
+                  color: themeProvider.getTextColor(),
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.send,
-                      label: 'Send',
-                      color: const Color(0xFF0052FF),
-                      onTap: () {
-                        // Navigate to send screen
-                        DefaultTabController.of(context)?.animateTo(1);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.qr_code_scanner,
-                      label: 'Receive',
-                      color: const Color(0xFF10B981),
-                      onTap: () {
-                        // Navigate to receive screen
-                        DefaultTabController.of(context)?.animateTo(2);
-                      },
-                    ),
-                  ),
-                ],
+              Text(
+                walletProvider.errorMessage ?? 'Unknown error occurred',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: themeProvider.getSecondaryTextColor(),
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 32),
-
-              // Recent Transactions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Recent Transactions',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // Navigate to transaction history
-                    },
-                    child: const Text(
-                      'View All',
-                      style: TextStyle(
-                        color: Color(0xFF0052FF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+              ElevatedButton(
+                onPressed: () => walletProvider.refreshWallet(),
+                child: const Text('Retry'),
               ),
-              const SizedBox(height: 16),
-              
-              // Transaction List
-              ..._recentTransactions.map((tx) => _buildTransactionItem(tx)),
             ],
           ),
         ),
@@ -325,148 +523,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    required ThemeProvider themeProvider,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              color.withOpacity(0.1),
-              color.withOpacity(0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(16),
+          color: themeProvider.getCardColor(),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: color.withOpacity(0.2),
+            color: themeProvider.getBorderColor(),
             width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 icon,
                 color: color,
-                size: 24,
+                size: 28,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               label,
               style: TextStyle(
-                color: color,
+                color: themeProvider.getTextColor(),
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTransactionItem(Map<String, dynamic> transaction) {
-    final bool isReceived = transaction['type'] == 'received';
-    final Color amountColor = isReceived ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-    final IconData typeIcon = isReceived ? Icons.arrow_downward : Icons.arrow_upward;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2330),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: amountColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              typeIcon,
-              color: amountColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isReceived ? 'Received' : 'Sent',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  transaction['from'] ?? transaction['to'],
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  transaction['time'],
-                  style: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${isReceived ? '+' : '-'}\$${transaction['amount'].toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: amountColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  transaction['status'],
-                  style: const TextStyle(
-                    color: Color(0xFF10B981),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

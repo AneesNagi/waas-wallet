@@ -1,0 +1,12 @@
+{
+  "anees123or@gmail.com": {
+    "passwordHash": "$2a$10$jMOpC/H0Te5Udz1ofWBenuqD3EDqYCFekHuqTGg3gzP46XhNirOhS",
+    "walletAddress": "0xB301B8cc67Cb8F690b4F73345F9118a9e88Fac02",
+    "encryptedPk": "twIs3wqfQA5VoQTb.l8N+k5PmMAmjFCEEqefg38Nb6ETgefqJ8Kq4gS1xPahwKD3RI/9rlYSOM16ClqBmBbllCRk1m/uds3ej1JjN5Ydz.HTMD6kyrVASathLTCINi5g=="
+  },
+  "test@example.com": {
+    "passwordHash": "$2a$10$wtdohzT37sPejdgi3PkbU.5fZkxsQ2v7IsJNh13.eJvwIYU7kV2C6",
+    "walletAddress": "0xB1469E745fd973AEcf149d8295A7d2b4C0b14052",
+    "encryptedPk": "6rkg3vpFuYuj3wid.DjO1po6SXRL4dc+nGmxi3Sm8yfYL5SgOjujIHJ7Z7GhB1pD3Ux+oU1EszSfo/NvINvF2sVElELSQvdlp5LTLYgaM.ZrMAdJ7nEg1SGZ9rBCvDOw=="
+  }
+}

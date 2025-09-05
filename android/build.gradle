@@ -1,12 +1,12 @@
 buildscript {
-    ext.kotlin_version = '1.7.10'
+    ext.kotlin_version = '2.1.0'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath 'com.android.tools.build:gradle:8.7.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -40,6 +40,19 @@ allprojects {
                         sourceCompatibility JavaVersion.VERSION_17
                         targetCompatibility JavaVersion.VERSION_17
                     }
+                }
+            }
+        }
+    }
+}
+
+// Ensure Kotlin compiles to JVM 17 across all modules
+subprojects {
+    afterEvaluate { project ->
+        if (project.plugins.hasPlugin('org.jetbrains.kotlin.android') || project.plugins.hasPlugin('kotlin-android') || project.plugins.hasPlugin('org.jetbrains.kotlin.jvm')) {
+            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+                task.kotlinOptions {
+                    jvmTarget = '17'
                 }
             }
         }

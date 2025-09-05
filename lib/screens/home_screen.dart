@@ -14,12 +14,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
+  List<Widget> get _screens => [
+    DashboardScreen(onTabChange: _onTabChange),
     const SendScreen(),
     const ReceiveScreen(),
     const SettingsScreen(),
   ];
+
+  void _onTabChange(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
